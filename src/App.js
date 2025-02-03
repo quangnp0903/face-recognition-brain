@@ -11,44 +11,6 @@ import './App.css';
 import SignIn from './components/SignIn/SignIn';
 import Register from './components/Register/Register';
 
-/* const returnClarifaiRequestOptions = (imageUrl) => {
-  // Your PAT (Personal Access Token) can be found in the Account's Security section
-  const PAT = '94a354e1fdc045bb83cd5e993db709a8';
-  // Specify the correct user_id/app_id pairings
-  // Since you're making inferences outside your app's scope
-  const USER_ID = '5px5jut5hn89';
-  const APP_ID = 'test';
-  // Change these to whatever model and image URL you want to use
-  const MODEL_ID = 'face-detection';
-  // const IMAGE_URL = 'https://samples.clarifai.com/metro-north.jpg';
-  const IMAGE_URL = imageUrl;
-
-  const raw = JSON.stringify({
-    user_app_id: {
-      user_id: USER_ID,
-      app_id: APP_ID,
-    },
-    inputs: [
-      {
-        data: {
-          image: {
-            url: IMAGE_URL,
-          },
-        },
-      },
-    ],
-  });
-
-  return {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      Authorization: 'Key ' + PAT,
-    },
-    body: raw,
-  };
-}; */
-
 const initialState = {
   input: '',
   imageUrl: null,
@@ -116,7 +78,7 @@ class App extends Component {
 
   onButtonSubmit = () => {
     this.setState({ imageUrl: this.state.input });
-    fetch('http://localhost:3001/imageurl', {
+    fetch('https://boiling-depths-87436-0d53bba2fd8b.herokuapp.com/imageurl', {
       method: 'post',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -126,13 +88,16 @@ class App extends Component {
       .then((response) => response.json())
       .then((response) => {
         if (response) {
-          fetch('http://localhost:3001/image', {
-            method: 'put',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: this.state.user.id,
-            }),
-          })
+          fetch(
+            'https://boiling-depths-87436-0d53bba2fd8b.herokuapp.com/image',
+            {
+              method: 'put',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: this.state.user.id,
+              }),
+            }
+          )
             .then((response) => response.json())
             .then((count) => {
               this.setState(Object.assign(this.state.user, { entries: count }));
