@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import fetchApi from '../../utils/fetchApi';
 
 class Register extends Component {
   constructor(props) {
@@ -23,23 +24,30 @@ class Register extends Component {
   };
 
   onSubmitSignIn = () => {
-    fetch('https://boiling-depths-87436-0d53bba2fd8b.herokuapp.com/register', {
-      method: 'post',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: this.state.name,
-        email: this.state.email,
-        password: this.state.password,
-      }),
+    fetchApi('http://localhost:3001/register', 'post', {
+      name: this.state.name,
+      email: this.state.email,
+      password: this.state.password,
     })
-      .then((response) => response.json())
-      .then((user) => {
-        if (user.id) {
-          this.props.loadUser(user);
-          this.props.onRouteChange('home');
+      .then((data) => {
+        if (data.userId && data.success === 'true') {
+          window.sessionStorage.setItem('token', data.token);
+          fetchApi(
+            `http://localhost:3001/profile/${data.userId}`,
+            'get',
+            null,
+            data.token
+          )
+            .then((user) => {
+              if (user && user.email) {
+                this.props.loadUser(user);
+                this.props.onRouteChange('home');
+              }
+            })
+            .catch(console.log);
         }
-      });
-    // this.props.onRouteChange('home');
+      })
+      .catch(console.log);
   };
   render() {
     return (

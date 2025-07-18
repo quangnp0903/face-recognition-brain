@@ -6,70 +6,92 @@ import Logo from './components/Logo/Logo';
 import Navigation from './components/Navigation/Navigation';
 import Rank from './components/Rank/Rank';
 import FaceRecognition from './components/FaceRecognition/FaceRecognition';
-
-import './App.css';
 import SignIn from './components/SignIn/SignIn';
 import Register from './components/Register/Register';
+import Modal from './components/Modal/Modal';
+import Profile from './components/Profile/Profile';
+import fetchApi from './utils/fetchApi';
+
+import './App.css';
 
 const initialState = {
   input: '',
   imageUrl: null,
-  box: {},
+  boxes: [],
   route: 'signin',
   isSignedIn: false,
+  isProfileOpen: false,
   user: {
     id: '',
     name: '',
     email: '',
     entries: 0,
     joined: '',
+    pet: '',
+    age: '',
   },
 };
 
 class App extends Component {
   constructor() {
     super();
-    this.state = {
-      input: '',
-      imageUrl: null,
-      box: {},
-      route: 'signin',
-      isSignedIn: false,
-      user: {
-        id: '',
-        name: '',
-        email: '',
-        entries: 0,
-        joined: '',
-      },
-    };
+    this.state = { ...initialState };
+  }
+
+  componentDidMount() {
+    const token = window.sessionStorage.getItem('token');
+    if (token) {
+      fetchApi('http://localhost:3001/signin', 'post', null, token)
+        .then((data) => {
+          if (data && data.id) {
+            fetchApi(
+              `http://localhost:3001/profile/${data.id}`,
+              'get',
+              null,
+              token
+            ).then((user) => {
+              if (user && user.email) {
+                this.loadUser(user);
+                this.onRouteChange('home');
+              }
+            });
+          }
+        })
+        .catch(console.log);
+    }
   }
 
   loadUser = (data) => {
-    const { id, name, email, entries, joined } = data;
-    this.setState({ user: { id, name, email, entries, joined } });
+    const { id, name, email, entries, joined, age, pet } = data;
+    this.setState({ user: { id, name, email, entries, joined, age, pet } });
   };
 
-  calculateFaceLocation = (data) => {
+  calculateFaceLocations = (data) => {
     // const clarifaiFace =
     //   data.outputs[0].data.regions[0].region_info.bounding_box;
-    const clarifaiFace =
-      data?.[0]?.data?.regionsList?.[0].regionInfo.boundingBox;
+    const clarifaiFaces = data?.[0]?.data?.regionsList;
+
+    if (!clarifaiFaces) return [];
+
     const image = document.getElementById('inputimage');
     const width = Number(image.width);
     const height = Number(image.height);
 
-    return {
-      leftCol: clarifaiFace.leftCol * width,
-      topRow: clarifaiFace.topRow * height,
-      rightCol: width - clarifaiFace.rightCol * width,
-      bottomRow: height - clarifaiFace.bottomRow * height,
-    };
+    const dimensions = clarifaiFaces.map((face) => {
+      const dimension = face.regionInfo.boundingBox;
+      return {
+        leftCol: dimension.leftCol * width,
+        topRow: dimension.topRow * height,
+        rightCol: width - dimension.rightCol * width,
+        bottomRow: height - dimension.bottomRow * height,
+      };
+    });
+
+    return dimensions;
   };
 
-  displayFaceBox = (box) => {
-    console.log('box', box);
-    this.setState({ box });
+  displayFaceBoxes = (boxes) => {
+    this.setState({ boxes });
   };
 
   onInputChange = (event) => {
@@ -78,62 +100,55 @@ class App extends Component {
 
   onButtonSubmit = () => {
     this.setState({ imageUrl: this.state.input });
-    fetch('https://boiling-depths-87436-0d53bba2fd8b.herokuapp.com/imageurl', {
-      method: 'post',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const token = window.sessionStorage.getItem('token');
+
+    fetchApi(
+      'http://localhost:3001/imageurl',
+      'post',
+      {
         input: this.state.input,
-      }),
-    })
-      .then((response) => response.json())
+      },
+      token
+    )
       .then((response) => {
         if (response) {
-          fetch(
-            'https://boiling-depths-87436-0d53bba2fd8b.herokuapp.com/image',
+          fetchApi(
+            'http://localhost:3001/image',
+            'put',
             {
-              method: 'put',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: this.state.user.id,
-              }),
-            }
+              id: this.state.user.id,
+            },
+            token
           )
-            .then((response) => response.json())
             .then((count) => {
               this.setState(Object.assign(this.state.user, { entries: count }));
             })
             .catch(console.log);
         }
-        console.log('response img', response);
-        this.displayFaceBox(this.calculateFaceLocation(response));
+        this.displayFaceBoxes(this.calculateFaceLocations(response));
       })
       .catch((err) => console.log(err));
-    // currently leave it for now until we fix the face-detection api
-    /* fetch('http://localhost:3001/image', {
-      method: 'put',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: this.state.user.id,
-      }),
-    })
-      .then((response) => response.json())
-      .then((count) => {
-        // this.setState(Object.assign(this.state.user, { entries: count }));
-        this.setState({ user: { ...this.state.user, entries: count } });
-      }); */
   };
 
   onRouteChange = (route) => {
     if (route === 'signout') {
-      this.setState(initialState);
+      return this.setState(initialState);
     } else if (route === 'home') {
       this.setState({ isSignedIn: true });
     }
     this.setState({ route });
   };
 
+  toggleModal = () => {
+    this.setState((prevState) => ({
+      ...prevState,
+      isProfileOpen: !prevState.isProfileOpen,
+    }));
+  };
+
   render() {
-    const { isSignedIn, box, route, imageUrl, user } = this.state;
+    const { isSignedIn, boxes, route, imageUrl, user, isProfileOpen } =
+      this.state;
 
     return (
       <div className="App">
@@ -141,7 +156,18 @@ class App extends Component {
         <Navigation
           isSignedIn={isSignedIn}
           onRouteChange={this.onRouteChange}
+          toggleModal={this.toggleModal}
         />
+        {isProfileOpen && (
+          <Modal>
+            <Profile
+              isProfileOpen={isProfileOpen}
+              toggleModal={this.toggleModal}
+              loadUser={this.loadUser}
+              user={user}
+            />
+          </Modal>
+        )}
         {route === 'home' ? (
           <div>
             <Logo />
@@ -150,7 +176,7 @@ class App extends Component {
               onInputChange={this.onInputChange}
               onButtonSubmit={this.onButtonSubmit}
             />
-            <FaceRecognition box={box} imageUrl={imageUrl} />
+            <FaceRecognition boxes={boxes} imageUrl={imageUrl} />
           </div>
         ) : route === 'signin' ? (
           <SignIn loadUser={this.loadUser} onRouteChange={this.onRouteChange} />

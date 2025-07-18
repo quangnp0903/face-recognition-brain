@@ -1,5 +1,8 @@
 import { Component } from 'react';
 
+import fetchApi from '../../utils/fetchApi';
+import './Signin.css';
+
 class SignIn extends Component {
   constructor(props) {
     super(props);
@@ -17,23 +20,32 @@ class SignIn extends Component {
     this.setState({ signInPassword: event.target.value });
   };
 
+  saveAuthTokenInSession = (token) => {
+    window.sessionStorage.setItem('token', token);
+  };
+
   onSubmitSignIn = () => {
-    fetch('https://boiling-depths-87436-0d53bba2fd8b.herokuapp.com/signin', {
-      method: 'post',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: this.state.signInEmail,
-        password: this.state.signInPassword,
-      }),
+    fetchApi('http://localhost:3001/signin', 'post', {
+      email: this.state.signInEmail,
+      password: this.state.signInPassword,
     })
-      .then((response) => response.json())
-      .then((user) => {
-        if (user.id) {
-          this.props.loadUser(user);
-          this.props.onRouteChange('home');
+      .then((data) => {
+        if (data.userId && data.success === 'true') {
+          this.saveAuthTokenInSession(data.token);
+          fetchApi(
+            'http://localhost:3001/profile/' + data.userId,
+            'get',
+            null,
+            data.token
+          ).then((user) => {
+            if (user && user.email) {
+              this.props.loadUser(user);
+              this.props.onRouteChange('home');
+            }
+          });
         }
-      });
-    // this.props.onRouteChange('home');
+      })
+      .catch(console.log);
   };
 
   render() {
@@ -50,7 +62,7 @@ class SignIn extends Component {
                   Email
                 </label>
                 <input
-                  className="pa2 input-reset ba bg-transparent hover-bg-black hover-white w-100"
+                  className="pa2 input-reset ba bg-transparent hover-bg-black hover-white w-100 hover-black"
                   type="email"
                   name="email-address"
                   id="email-address"
@@ -62,7 +74,7 @@ class SignIn extends Component {
                   Password
                 </label>
                 <input
-                  className="b pa2 input-reset ba bg-transparent hover-bg-black hover-white w-100"
+                  className="b pa2 input-reset ba bg-transparent hover-bg-black hover-white w-100 hover-black"
                   type="password"
                   name="password"
                   id="password"
